@@ -1,21 +1,46 @@
 import os
+import json
+from datetime import datetime
 from dotenv import load_dotenv
 from apify_client import ApifyClient
 
-load_dotenv()
+class InstagramScraper:
+    def __init__(self, api_key, actor_id, username, result_limit=5, output_dir="data"):
+        self.client = ApifyClient(api_key)
+        self.actor_id = actor_id
+        self.username = username
+        self.result_limit = result_limit
+        self.output_dir = output_dir
+        os.makedirs(self.output_dir, exist_ok=True)
 
-API_APIFY = os.getenv('API_APIFY')
-client = ApifyClient(API_APIFY)
+    def run_actor(self):
+        run_input = {
+            'username' : [self.username],
+            'resultsLimit': self.result_limit}
 
-# Prepare the Actor input
-run_input = {
-    "username": ["ladygaga"],
-    "resultsLimit": 1,
-}
+        self.run = self.client.actor(self.actor_id).call(run_input=run_input)
 
-# Run the Actor and wait for it to finish
-run = client.actor("nH2AHrwxeTRJoN5hX").call(run_input=run_input)
+    def fetch_data(self):
+        return list(self.client.dataset(self.run['defaultDatasetId']).iterate_items())
+    
+    def save_to_json(self, data):
+        date_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        output_path = os.path.join(self.output_dir, f"instagram_ladygaga_{date_str}.json")
 
-# Fetch and print Actor results from the run's dataset (if there are any)
-for item in client.dataset(run["defaultDatasetId"]).iterate_items():
-    print(item)
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        print(f"Arquivo salvo em: {output_path}")
+
+if __name__ == '__main__':
+    load_dotenv()
+
+    scraper = InstagramScraper(
+        api_key=os.getenv('API_APIFY'),
+        actor_id=os.getenv('ACTOR_ID'),
+        username='ladygaga',
+        result_limit=2)
+    
+    scraper.run_actor()
+    data = scraper.fetch_data()
+    scraper.save_to_json(data)
