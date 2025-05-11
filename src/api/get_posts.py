@@ -1,32 +1,42 @@
-import logging
+from apify_client import ApifyClient
+from pathlib import Path
+from datetime import datetime
+from dotenv import load_dotenv
+import os
+import json
 
-class InstagramDataFetcher:    
-    def __init__(self, apify_service, data_saver, username, result_limit):
-        self.apify_service = apify_service
-        self.data_saver = data_saver
-        self.username = username
-        self.result_limit = result_limit
-        self.logger = logging.getLogger('instagram_scraper.fetcher')
+def fetch_and_save_posts():
+    load_dotenv()
 
-    def fetch_and_save(self):
-        self.logger.info(f"Iniciando a busca de dados para o usuário: {self.username}")
-        
-        # Executa o ator do Apify
-        run = self.apify_service.run_actor(self.username, self.result_limit)
-        if not run or 'defaultDatasetId' not in run:
-            self.logger.error(f"Falha ao executar o ator ou obter o ID do dataset para: {self.username}")
-            return False
-        
-        # Busca os dados do dataset
-        data = self.apify_service.fetch_dataset_items(run['defaultDatasetId'])
-        if not data:
-            self.logger.warning(f"Nenhum dado encontrado para o usuário: {self.username}")
-            return False
-        
-        # Salva os dados em arquivo
-        if self.data_saver.save_json(data, f"instagram_{self.username}"):
-            self.logger.info(f"Dados de {self.username} coletados e salvos com sucesso.")
-            return True
-        else:
-            self.logger.error(f"Falha ao salvar os dados de {self.username} para JSON.")
-            return False
+    api_token = os.getenv("API_APIFY")
+    actor_id = os.getenv("ACTOR_ID")
+
+    if not api_token or not actor_id:
+        raise ValueError("Missing API_APIFY or ACTOR_ID in .env file")
+
+    # output
+    date_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+
+    current_path = Path(__file__)
+    data_dir = current_path.parents[2] / "data / raw"
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    output_path = data_dir / f"instagram_{date_str}.json"
+
+    client = ApifyClient(api_token)
+    run_input = {
+        "username": ["ladygaga"],
+        "resultsLimit": 2,
+    }
+
+    run = client.actor(actor_id).call(run_input=run_input)
+    items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
+
+    # Save results to file
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+
+    print(f"Saved {len(items)} posts to {output_path}")
+
+if __name__ == '__main__':
+    fetch_and_save_posts()
