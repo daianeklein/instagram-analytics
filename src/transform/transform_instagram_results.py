@@ -1,53 +1,78 @@
-# src/transform/instagram_transformer.py
-
+import json
+from pathlib import Path
+from typing import List, Dict, Optional, Tuple
 import pandas as pd
-from typing import List, Dict
 from datetime import datetime
 
-class InstagramPostTransformer:
-    def __init__(self, raw_data: List[Dict]):
-        self.raw_data = raw_data
-
-    def transform(self) -> pd.DataFrame:
-        transformed_data = []
-
-        for post in self.raw_data:
-            post_id = post.get("id")
-            caption = post.get("caption")
-            comments_count = post.get("commentsCount")
-            likes_count = post.get("likesCount")
-            timestamp = post.get("timestamp")
-
-            if timestamp:
-                try:
-                    dt = datetime.fromisoformat(timestamp.replace("Z", ""))
-                    date_str = dt.strftime("%d-%m-%Y")
-                    time_str = dt.strftime("%H:%M:%S")
-                except ValueError:
-                    date_str = None
-                    time_str = None
-            else:
-                date_str = None
-                time_str = None
-
-            transformed_data.append({
-                "post_id": post_id,
-                "caption": caption,
-                "comments_count": comments_count,
-                "likes_count": likes_count,
-                "date": date_str,
-                "time": time_str
-            })
-
-        return pd.DataFrame(transformed_data)
+def parse_timestamp(timestamp: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Convert timestamp ISO into datetime.
+    """
+    if not timestamp:
+        return None, None
     
-if __name__ == '__main__':
-    import json
+    try:
+        dt = datetime.fromisoformat(timestamp.replace("Z", ""))
+        return dt.strftime("%d-%m-%Y"), dt.strftime("%H:%M")
+    except ValueError:
+        print(f"Erro ao processar timestamp: {timestamp}")
+        return None, None
 
-    with open('/Users/daianeklein/Documents/DS/instagram-analytics/data/raw/instagram_ladygaga_2025-05-07_19-00-00.json', 'r') as file:
-        data = json.load(file)
 
-        transformer = InstagramPostTransformer(data)
-        df_transformed = transformer.transform()
-        print(df_transformed)
+def extract_post_data(posts: List[Dict]) -> pd.DataFrame:
+    """
+    Extract data from JSON output.
+    """
+    records = []
+    
+    for post in posts:
+        record = {
+            "post_id": post.get("id"),
+            "caption": post.get("caption", ""),
+            "likes_count": post.get("likesCount", 0),
+            "date": None,
+            "time": None
+        }
+        
+        record["date"], record["time"] = parse_timestamp(post.get("timestamp"))
+        
+        records.append(record)
+    
+    return pd.DataFrame(records)
 
+
+def process_instagram_data(input_path: Path, output_path: Path) -> None:
+    """
+    Process data and save into CSV
+    """
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
+    
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(input_path, "r", encoding="utf-8") as file:
+        posts = json.load(file)
+    
+    df = extract_post_data(posts)
+    df.to_csv(output_path, sep=";", index=False, encoding="utf-8")
+    
+    print(f"File saved: {output_path}")
+    print("\nDataframe sample:")
+    print(df.head())
+
+def main():
+    # Dir setup
+    current_path = Path(__file__)
+    base_dir = current_path.parents[2]
+    data_dir = base_dir / "data" / "raw"
+    output_dir = base_dir / "data" / "processed"
+    
+    input_filename = "instagram_ladygaga_2025-05-11_20-05-03.json"
+    input_path = data_dir / input_filename
+    output_path = output_dir / "processed.csv"
+    
+    process_instagram_data(input_path, output_path)
+
+if __name__ == "__main__":
+    main()
