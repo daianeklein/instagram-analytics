@@ -18,7 +18,7 @@ def fetch_and_save_posts():
     date_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
     current_path = Path(__file__)
-    data_dir = current_path.parents[2] / "data / raw"
+    data_dir = current_path.parents[2] / "data/raw"
     data_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = data_dir / f"instagram_{date_str}.json"

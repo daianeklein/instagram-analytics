@@ -1,37 +1,78 @@
+import json
+from pathlib import Path
+from typing import List, Dict, Optional, Tuple
 import pandas as pd
 from datetime import datetime
-import json
 
-def extract_post_data(posts: list) -> pd.DataFrame:
+def parse_timestamp(timestamp: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Convert timestamp ISO into datetime.
+    """
+    if not timestamp:
+        return None, None
+    
+    try:
+        dt = datetime.fromisoformat(timestamp.replace("Z", ""))
+        return dt.strftime("%d-%m-%Y"), dt.strftime("%H:%M")
+    except ValueError:
+        print(f"Erro ao processar timestamp: {timestamp}")
+        return None, None
+
+
+def extract_post_data(posts: List[Dict]) -> pd.DataFrame:
+    """
+    Extract data from JSON output.
+    """
     records = []
-
+    
     for post in posts:
-        post_id = post.get("id")
-        caption = post.get("caption", "")
-        likes = post.get("likesCount")
-        timestamp = post.get("timestamp")
-
-        # Formatação da data e hora
-        if timestamp:
-            dt = datetime.fromisoformat(timestamp.replace("Z", ""))
-            date_str = dt.strftime("%d-%m-%Y")
-            time_str = dt.strftime("%H:%M")
-        else:
-            date_str = None
-            time_str = None
-
-        records.append({
-            "post_id": post_id,
-            "caption": caption,
-            "likes_count": likes,
-            "date": date_str,
-            "time": time_str
-        })
+        record = {
+            "post_id": post.get("id"),
+            "caption": post.get("caption", ""),
+            "likes_count": post.get("likesCount", 0),
+            "date": None,
+            "time": None
+        }
+        
+        record["date"], record["time"] = parse_timestamp(post.get("timestamp"))
+        
+        records.append(record)
+    
     return pd.DataFrame(records)
 
-path = 'instagram_ladygaga_2025-05-11_20-05-03.json'
-with open(path, "r") as f:
-    raw_data = json.load(f)
 
-df = extract_post_data(raw_data)
-print(df.head())
+def process_instagram_data(input_path: Path, output_path: Path) -> None:
+    """
+    Process data and save into CSV
+    """
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
+    
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(input_path, "r", encoding="utf-8") as file:
+        posts = json.load(file)
+    
+    df = extract_post_data(posts)
+    df.to_csv(output_path, sep=";", index=False, encoding="utf-8")
+    
+    print(f"File saved: {output_path}")
+    print("\nDataframe sample:")
+    print(df.head())
+
+def main():
+    # Dir setup
+    current_path = Path(__file__)
+    base_dir = current_path.parents[2]
+    data_dir = base_dir / "data" / "raw"
+    output_dir = base_dir / "data" / "processed"
+    
+    input_filename = "instagram_ladygaga_2025-05-11_20-05-03.json"
+    input_path = data_dir / input_filename
+    output_path = output_dir / "processed.csv"
+    
+    process_instagram_data(input_path, output_path)
+
+if __name__ == "__main__":
+    main()
