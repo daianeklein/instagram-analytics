@@ -30,14 +30,12 @@ def fetch_and_save_posts(instagram_profile: str):
 
     output_path = data_dir / f'instagram_{instagram_profile}_{date_str}.json'
 
-    print(output_path)
-
     # Configure Apify client
     client = ApifyClient(api_token)
     
     run_input = {
         'username': [instagram_profile],
-        'resultsLimit': 10,  
+        'resultsLimit': 100,  
     }
 
     run = client.actor(actor_id).call(run_input=run_input)
