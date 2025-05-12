@@ -68,7 +68,7 @@ def main(input_file: Optional[Path] = None, output_file: Optional[Path] = None):
     """
     # If no input file is provided, use the most recent JSON in the raw data directory
     if input_file is None:
-        current_path = Path(__file__)
+        current_path = Path.cwd()
         base_dir = current_path.parents[2]
         data_dir = base_dir / "data" / "raw"
         
