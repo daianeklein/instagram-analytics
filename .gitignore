@@ -176,3 +176,7 @@ cython_debug/
 #config
 .DS_Store
 venv-insta-analytics/
+
+#data
+*.json
+*.csv
