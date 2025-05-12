@@ -6,7 +6,7 @@ from datetime import datetime
 
 def parse_timestamp(timestamp: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
     """
-    Convert timestamp ISO into datetime.
+    Convert timestamp ISO into formatted date and time.
     """
     if not timestamp:
         return None, None
@@ -15,13 +15,12 @@ def parse_timestamp(timestamp: Optional[str]) -> Tuple[Optional[str], Optional[s
         dt = datetime.fromisoformat(timestamp.replace("Z", ""))
         return dt.strftime("%d-%m-%Y"), dt.strftime("%H:%M")
     except ValueError:
-        print(f"Erro ao processar timestamp: {timestamp}")
+        print(f"Error processing timestamp: {timestamp}")
         return None, None
-
 
 def extract_post_data(posts: List[Dict]) -> pd.DataFrame:
     """
-    Extract data from JSON output.
+    Extract relevant data from Instagram posts.
     """
     records = []
     
@@ -30,24 +29,23 @@ def extract_post_data(posts: List[Dict]) -> pd.DataFrame:
             "post_id": post.get("id"),
             "caption": post.get("caption", ""),
             "likes_count": post.get("likesCount", 0),
+            "media_url": post.get("imageUrl") or post.get("videoUrl", ""),
             "date": None,
             "time": None
         }
         
         record["date"], record["time"] = parse_timestamp(post.get("timestamp"))
-        
         records.append(record)
     
     return pd.DataFrame(records)
 
 
-def process_instagram_data(input_path: Path, output_path: Path) -> None:
+def process_instagram_data(input_path: Path, output_path: Path) -> pd.DataFrame:
     """
-    Process data and save into CSV
+    Process Instagram data from JSON to CSV.
     """
-
     if not input_path.exists():
-        raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
+        raise FileNotFoundError(f"File not found: {input_path}")
     
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -60,19 +58,34 @@ def process_instagram_data(input_path: Path, output_path: Path) -> None:
     print(f"File saved: {output_path}")
     print("\nDataframe sample:")
     print(df.head())
+    
+    return df
 
-def main():
-    # Dir setup
-    current_path = Path(__file__)
-    base_dir = current_path.parents[2]
-    data_dir = base_dir / "data" / "raw"
-    output_dir = base_dir / "data" / "processed"
+
+def main(input_file: Optional[Path] = None, output_file: Optional[Path] = None):
+    """
+    Main function to process Instagram data.
+    """
+    # If no input file is provided, use the most recent JSON in the raw data directory
+    if input_file is None:
+        current_path = Path(__file__)
+        base_dir = current_path.parents[2]
+        data_dir = base_dir / "data" / "raw"
+        
+        # Find the most recent JSON file
+        json_files = list(data_dir.glob("instagram_*.json"))
+        if not json_files:
+            print("No Instagram JSON files found in the raw data directory.")
+            return
+        
+        input_file = max(json_files, key=lambda f: f.stat().st_mtime)
     
-    input_filename = "instagram_ladygaga_2025-05-11_20-05-03.json"
-    input_path = data_dir / input_filename
-    output_path = output_dir / "processed.csv"
+    if output_file is None:
+        output_dir = input_file.parent.parent / "processed"
+        output_file = output_dir / f"{input_file.stem}_processed.csv"
     
-    process_instagram_data(input_path, output_path)
+    process_instagram_data(input_file, output_file)
+
 
 if __name__ == "__main__":
     main()
