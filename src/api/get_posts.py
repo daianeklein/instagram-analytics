@@ -35,7 +35,7 @@ def fetch_and_save_posts(instagram_profile: str):
     
     run_input = {
         'username': [instagram_profile],
-        'resultsLimit': 100,  
+        'resultsLimit': 300,  
     }
 
     run = client.actor(actor_id).call(run_input=run_input)
